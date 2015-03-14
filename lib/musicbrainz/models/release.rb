@@ -15,7 +15,14 @@ module MusicBrainz
       @tracks ||= client.load(:release, { id: id, inc: [:recordings, :media], limit: 100 }, {
         binding: :release_tracks,
         create_models: :track,
-        sort: :position
+        sort: [:disc, :position]
+      }) unless @id.nil?
+    end
+
+    def artists
+      @artists ||= client.load(:release, {id: id, inc: [:artist_credits]}, {
+        binding: :release_artists,
+        create_models: :artist
       }) unless @id.nil?
     end
 

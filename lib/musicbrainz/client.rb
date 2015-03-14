@@ -1,4 +1,7 @@
 module MusicBrainz
+
+  class RateLimit < Exception ; end
+
   class Client
     include ClientModules::TransparentProxy
     include ClientModules::FailsafeProxy
@@ -18,6 +21,7 @@ module MusicBrainz
       url = build_url(resource, query)
       response = get_contents(url)
 
+      raise RateLimit if response[:status] == 503
       return nil if response[:status] != 200
 
       xml = Nokogiri::XML.parse(response[:body]).remove_namespaces!.xpath('/metadata')
@@ -27,7 +31,10 @@ module MusicBrainz
         model_class_for(params[:create_model]).new(data)
       elsif params[:create_models]
         models = data.map{ |item| model_class_for(params[:create_models]).new(item) }
-        models.sort!{ |a, b| a.send(params[:sort]) <=> b.send(params[:sort]) } if params[:sort]
+        params[:sort] = [params[:sort]] if params[:sort].try(:is_a?, Symbol)
+        models.sort! do |a, b| 
+          params[:sort].reverse_each.inject(true) { |m, s| m && a.send(s) <=> b.send(s) }
+        end if params[:sort]
         models
       else
         data
